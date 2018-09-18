@@ -52,29 +52,36 @@ router.post('/', (req, res, next) => {
     res.json(result);
   })
   .catch(err =>
-      res.status(404).json({ nopostfound: 'No post found with that ID' })
+      res.status(404).json({ err: 'was not created, make sure to add a title' })
     );
-
-
-  //
-  // console.log('Create a Note');
-  // res.location('path/to/new/document').status(201).json({ id: 2, title: 'Temp 2' });
-
 });
 
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 router.put('/:id', (req, res, next) => {
-
+  const title = req.body.title;
+  const content = req.body.content;
+  const id = req.params.id;
+  Note.findByIdAndUpdate(id, {title: title, content: content}).then(result=>{
+    res.json(result);
+  })
+  .catch(err =>
+      res.status(404).json({ err: 'was not able to update make sure to add a title' })
+    );
   console.log('Update a Note');
-  res.json({ id: 1, title: 'Updated Temp 1' });
-
+  // res.json({ id: 1, title: 'Updated Temp 1' });
 });
 
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
 router.delete('/:id', (req, res, next) => {
-
+  const id = req.params.id;
+  Note.findByIdAndRemove(id).then(result=>{
+    res.status(204).end();
+  })
+  .catch(err =>
+      res.status(404).json({ err: 'was not able to delete' })
+    );
   console.log('Delete a Note');
-  res.status(204).end();
-});
+  });
+
 
 module.exports = router;
