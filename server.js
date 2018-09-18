@@ -2,10 +2,16 @@
 
 const express = require('express');
 const morgan = require('morgan');
-
+const mongoose = require('mongoose');
 const { PORT } = require('./config');
-
+const { MONGODB_URI } = require('./config');
+const Note = require('./models/note');
 const notesRouter = require('./routes/notes');
+
+// Mongoose internally uses a promise-like object,
+// but it's better to make Mongoose use built in es6 promises
+mongoose.Promise = global.Promise;
+
 
 // Create an Express application
 const app = express();
@@ -43,12 +49,17 @@ app.use((err, req, res, next) => {
 });
 
 // Listen for incoming connections
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, function () {
-    console.info(`Server listening on ${this.address().port}`);
-  }).on('error', err => {
+mongoose.connect(MONGODB_URI, { useNewUrlParser:true })
+  .catch(err => {
+    console.error(`ERROR: ${err.message}`);
+    console.error('\n === Did you remember to start `mongod`? === \n');
     console.error(err);
   });
-}
+
+app.listen(PORT, function () {
+  console.info(`Server listening on ${this.address().port}`);
+}).on('error', err => {
+  console.error(err);
+});
 
 module.exports = app; // Export for testing
