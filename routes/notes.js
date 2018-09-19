@@ -23,6 +23,7 @@ router.get('/', (req, res, next) => {
 
 /* ========== GET/READ A SINGLE ITEM ========== */
 router.get('/:id', (req, res, next) => {
+  
   const id = req.params.id;
   console.log('Get a Note');
   Note.findById(id).then(result =>{
