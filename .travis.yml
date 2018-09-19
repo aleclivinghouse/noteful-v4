@@ -2,3 +2,10 @@ language: node_js
 node_js: node
 services:
 - mongodb
+deploy:
+  provider: heroku
+  api_key:
+    secure: WVDmQtAiWqddS+ySKltJYzzQpNQcXOCb5KO9jBcdGDMW1FiFaC1LhOL47GgYLzNRdERp+40eB/CFljmJgGGJSsm0+ZBYORnX2OVpwp+V5ChqIAc1bo6kQb37yB4DqFpx2ZRuUnBYv250W/td1IcwswCVDKuihcD7gufGPMU/u8thvdjCj1e3lm+PGjPPErq2tFoDFeoOryn+Ns3ck4SYQk4ydm1hiEpwJvMxnReYK58Hv9TBznjy537extLAcB+V2ISwNhlqkyMRfotm7M4cJDaCTtWsb+E3RwZxfQzVnpdU80YPXJQ/+qASZ3jIKunbFYpgHiheOYrtjIUTiTs6e/X4A/02rliek2ZMlwO7MIMV74dEFqtkwhktCkJBa05Tl+SIfob7jg9kHJ8e6okE7prrHtfsr4di3QFKoL+u0dp575y0NN6k9usUYxUVy4BRJMmKg6apYcmkvCwxAL6iqMSzUXpj8VSDYWzNAa36Fu8IqjJpnS/P8oFRdEPcGLTB5J7eKm1lIcN2u/WEGCby2Fdhh772YuJFcjd7y0rBSnG0OUKe8+zZov0xqxxylIWrsS0O0R53KMVKLKN4P5zRZ/xLwuNHdpxDxJgHUCnZLRZZ78TzPjdLiQEYmadv0b2GN5t+MUsM1Bf3ZQJ0Wel4e6tceqX0WDFsKCuhUpsmN+E=
+  app: travis-deploy-alec
+  on:
+    repo: thinkful-ei24/alec-noteful-v3
