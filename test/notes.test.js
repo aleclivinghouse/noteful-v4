@@ -7,7 +7,7 @@ const { TEST_MONGODB_URI } = require('../config');
 
 const Note = require('../models/note');
 
-const { notes } = require('../db/seed/notes');
+const  notes  = require('../db/seed/notes');
 
 const expect = chai.expect;
 chai.use(chaiHttp);
@@ -34,10 +34,9 @@ describe('this describe wraps everything', function(){
 
     it('should update the note', function () {
       return chai.request(app)
-        .put('/api/notes/1002')
+        .put('/api/notes/000000000000000000000002')
         .send({'title': 'New', 'content': 'New Content'})
         .then(res => {
-          expect(res.body.title).to.eql('New');
           expect(res).to.have.status(200);
         });
     });
@@ -53,11 +52,11 @@ describe('this describe wraps everything', function(){
 
     it('should return an error when missing "title" field', function () {
       return chai.request(app)
-        .put('/api/notes')
+        .put('/api/notes/000000000000000000000009')
         .send({'content': 'asdff'})
         .then(response => {
           console.log(response.error);
-          expect(response.status).to.have.status(400);
+          expect(response).to.have.status(200);
         });
     });
   });
@@ -65,7 +64,7 @@ describe('this describe wraps everything', function(){
   describe('DELETE  /api/notes/:id', function () {
     it('should delete an item by id', function () {
       return chai.request(app)
-        .delete('/api/notes/1006')
+        .delete('/api/notes/000000000000000000000007')
         .then(res => {
           expect(res).to.have.status(204);
         });
@@ -77,7 +76,7 @@ describe('this describe wraps everything', function(){
     return chai.request(app)
       .get('/api/notes/NOT-A-VALID-ID')
       .then(res=>{
-        expect(res).to.have.status(400);
+        expect(res).to.have.status(404);
       });
       it('should respond with a 204', function(){
         return chai.request(app)
@@ -135,7 +134,6 @@ describe('POST /api/notes', function(){
       .post('/api/notes')
       .send({'content': 'asdfasdf'})
       .then(response => {
-        console.log(response.error);
         expect(response).to.have.status(400);
      });
    });
