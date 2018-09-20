@@ -1,5 +1,4 @@
 'use strict';
-
 const express = require('express');
 const router = express.Router();
 const { MONGODB_URI } = require('../config');
@@ -10,19 +9,9 @@ const Folder = require('../models/folder');
 /* ========== GET/READ ALL ITEMS ========== */
 router.get('/', (req, res, next) => {
   const searchTerm = req.query.searchTerm;
-  const folderId = req.query.folderId;
-  let filter = {};
-
-  if (searchTerm) {
-  const re = new RegExp(searchTerm, 'i');
-  filter.title = { $regex: re };
-  }
-
-
-  console.log('Get All Notes');
-  Note.find(filter)
-  .sort('created')
-  .then(results=>{
+  const re = new RegExp(searchTerm, 'gi');
+  console.log('Get All Folders');
+  Folder.find({}).then(results=>{
     res.send(results);
   }).catch(err => {
     console.error(`ERROR: ${err.message}`);
@@ -34,8 +23,15 @@ router.get('/', (req, res, next) => {
 router.get('/:id', (req, res, next) => {
 
   const id = req.params.id;
-  console.log('Get a Note');
-  Note.findById(id).then(result =>{
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+  const err = new Error('The id is not valid');
+  err.status = 400;
+  return next(err);
+}
+
+  console.log('Get a Folder');
+  Folder.findById(id).then(result =>{
     res.json(result);
   })
   .catch(err =>
@@ -43,67 +39,52 @@ router.get('/:id', (req, res, next) => {
     );
 });
 
+
 /* ========== POST/CREATE AN ITEM ========== */
 router.post('/', (req, res, next) => {
-  const title = req.body.title;
-  const content = req.body.content;
-  const folderId = req.body.folderId;
+  const name = req.body.name;
   // const newItem = {
-  //   title: title,
+  //   name: name,
   //   content: content
   // }
-  if (!title) {
-  const err = new Error('Missing `title` in request body');
+  if (!name) {
+  const err = new Error('Missing `name` in request body');
   err.status = 400;
   return next(err);
 }
-  const newNote = {};
-  newNote.title = title;
-  newNote.content = content;
-  if (folderId) {
-   if (!mongoose.Types.ObjectId.isValid(folderId)) {
-     const err = new Error('The folderId is not valid');
-     err.status = 400;
-     return next(err);
-   } else {
-     newNote.folderId = folderId;
-   }
- }
-  Note.create(newNote).then(result=>{
-    console.log('below is the new note we created ');
+  Folder.create({name: name}).then(result=>{
+    console.log('below is the new Folder we created ');
     console.log(result);
     res.json(result);
   })
   .catch(err =>
-      res.status(404).json({ err: 'was not created, make sure to add a title' })
+      res.status(404).json({ err: 'was not created, make sure to add a name' })
     );
 });
 
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 router.put('/:id', (req, res, next) => {
-  const title = req.body.title;
-  const content = req.body.content;
-  const id = req.params.id;
-  Note.findByIdAndUpdate(id, {title: title, content: content}).then(result=>{
+    const name = req.body.name;
+  Folder.findByIdAndUpdate(id, {name: name}).then(result=>{
     res.json(result);
   })
   .catch(err =>
-      res.status(404).json({ err: 'was not able to update make sure to add a title' })
+      res.status(404).json({ err: 'was not able to update make sure to add a name' })
     );
-  console.log('Update a Note');
+  console.log('Update a Folder');
   // res.json({ id: 1, title: 'Updated Temp 1' });
 });
 
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
 router.delete('/:id', (req, res, next) => {
   const id = req.params.id;
-  Note.findByIdAndRemove(id).then(result=>{
+  Folder.findByIdAndRemove(id).then(result=>{
     res.status(204).end();
   })
   .catch(err =>
       res.status(404).json({ err: 'was not able to delete' })
     );
-  console.log('Delete a Note');
+  console.log('Delete a Folder');
   });
 
 

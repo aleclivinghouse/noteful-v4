@@ -7,6 +7,7 @@ const { PORT } = require('./config');
 const { MONGODB_URI } = require('./config');
 const Note = require('./models/note');
 const notesRouter = require('./routes/notes');
+const foldersRouter = require('./routes/folders');
 
 // Mongoose internally uses a promise-like object,
 // but it's better to make Mongoose use built in es6 promises
@@ -29,6 +30,7 @@ app.use(express.json());
 
 // Mount routers
 app.use('/api/notes', notesRouter);
+app.use('/api/folders', foldersRouter);
 
 // Custom 404 Not Found route handler
 app.use((req, res, next) => {
