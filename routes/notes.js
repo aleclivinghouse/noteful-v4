@@ -6,21 +6,31 @@ const { MONGODB_URI } = require('../config');
 const mongoose = require('mongoose');
 const Note = require('../models/note');
 const Folder = require('../models/folder');
+const Tag = require('../models/folder');
 
 /* ========== GET/READ ALL ITEMS ========== */
 router.get('/', (req, res, next) => {
   const searchTerm = req.query.searchTerm;
   const folderId = req.query.folderId;
+  // console.log('below are the tags');
+  // console.log(folders);
+  const tagId = req.query.tagId;
   let filter = {};
 
   if (searchTerm) {
   const re = new RegExp(searchTerm, 'i');
   filter.title = { $regex: re };
   }
+  if(folderId){
+   filter.folderId = folderId;
+  }
 
+  if(tagId){
+    filter.tags = tagId;
+  }
 
   console.log('Get All Notes');
-  Note.find(filter)
+  Note.find(filter).populate('tags')
   .sort('created')
   .then(results=>{
     res.send(results);
@@ -35,7 +45,7 @@ router.get('/:id', (req, res, next) => {
 
   const id = req.params.id;
   console.log('Get a Note');
-  Note.findById(id).then(result =>{
+  Note.findById(id).populate('tags').then(result =>{
     res.json(result);
   })
   .catch(err =>
@@ -48,6 +58,7 @@ router.post('/', (req, res, next) => {
   const title = req.body.title;
   const content = req.body.content;
   const folderId = req.body.folderId;
+  const tags = req.body.tags;
   // const newItem = {
   //   title: title,
   //   content: content
@@ -60,6 +71,8 @@ router.post('/', (req, res, next) => {
   const newNote = {};
   newNote.title = title;
   newNote.content = content;
+  newNote.tags = [];
+
   if (folderId) {
    if (!mongoose.Types.ObjectId.isValid(folderId)) {
      const err = new Error('The folderId is not valid');
@@ -69,7 +82,18 @@ router.post('/', (req, res, next) => {
      newNote.folderId = folderId;
    }
  }
-  Note.create(newNote).then(result=>{
+ if (tags.length > 0) {
+   for(let tag of tags){
+  if (!mongoose.Types.ObjectId.isValid(tag)) {
+    const err = new Error('The tag is not valid');
+    err.status = 400;
+    return next(err);
+  } else {
+    newNote.tags.push(tag);
+  }
+}
+}
+  Note.create(newNote).then(result =>{
     console.log('below is the new note we created ');
     console.log(result);
     res.json(result);
