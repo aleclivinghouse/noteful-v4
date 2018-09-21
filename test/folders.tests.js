@@ -5,13 +5,9 @@ const mongoose = require('mongoose');
 const app = require('../server');
 const { TEST_MONGODB_URI } = require('../config');
 
-const Note = require('../models/note');
 const Folder = require('../models/folder');
-const Tag = require('../models/tag');
 
-const  notes  = require('../db/seed/notes');
-const  tags  = require('../db/seed/tags');
-const  folders  = require('../db/seed/folders');
+const folders  = require('../db/seed/folders');
 
 const expect = chai.expect;
 chai.use(chaiHttp);
@@ -23,13 +19,7 @@ describe('this describe wraps everything', function(){
   });
 
   beforeEach(function () {
-    return Promise.all([
-      Note.insertMany(notes),
-      Folder.insertMany(folders),
-      Tag.insertMany(tags),
-      Folder.createIndexes(),
-      Tag.createIndexes()
-    ]);
+    return Folder.insertMany(folders);
   });
 
   afterEach(function () {
@@ -40,57 +30,52 @@ describe('this describe wraps everything', function(){
     return mongoose.disconnect();
   });
 
-  describe('PUT /api/notes/:id', function () {
+  describe('PUT /api/folders/:id', function () {
 
-    it('should update the note', function () {
-      return chai.request(app)
-        .put('/api/notes/000000000000000000000002')
-        .send({'title': 'New', 'content': 'New Content'})
-        .then(res => {
-          expect(res).to.have.status(200);
-        });
+    it('should update the folder', function () {
+      const updateItem = {'name': 'Updated Name'};
+      let data;
+      return Folder.findOne()
+        .then(_data => {
+          data = _data;
+          return chai.request(app).put(`/api/folders/${data.id}`).send(updateItem);
+        })
+         .then(function (res) {
+           expect(res).to.have.status(200);
+           expect(res).to.be.json;
+          });
     });
 
-    it('should respond with a 404 for an invalid id', function () {
+    it('should respond with a 400 for an invalid id', function () {
       return chai.request(app)
-        .put('/api/notes/1231231239192321390-19230-')
+        .put('/api/folders/1231231239192321390-19230-')
         .send({'title': 'New', 'content': 'New Content'})
         .then(res => {
-          expect(res).to.have.status(404);
-        });
-    });
-
-    it('should return an error when missing "title" field', function () {
-      return chai.request(app)
-        .put('/api/notes/000000000000000000000009')
-        .send({'content': 'asdff'})
-        .then(response => {
-          console.log(response.error);
-          expect(response).to.have.status(200);
+          expect(res).to.have.status(400);
         });
     });
   });
 
-  describe('DELETE  /api/notes/:id', function () {
+  describe('DELETE  /api/folders/:id', function () {
     it('should delete an item by id', function () {
       return chai.request(app)
-        .delete('/api/notes/000000000000000000000007')
+        .delete('/api/folders/111111111111111111111103')
         .then(res => {
           expect(res).to.have.status(204);
         });
       });
     });
 
-  describe('GET /api/notes/:id', function(){
-    it('should respond with a 404 and an error message when `id` is not valid', function(){
+  describe('GET /api/folders/:id', function(){
+    it('should respond with a 400 and an error message when `id` is not valid', function(){
     return chai.request(app)
-      .get('/api/notes/NOT-A-VALID-ID')
+      .get('/api/folders/NOT-A-VALID-ID')
       .then(res=>{
-        expect(res).to.have.status(404);
+        expect(res).to.have.status(400);
       });
       it('should respond with a 204', function(){
         return chai.request(app)
-        .get('/api/notes/000000000000000000000005')
+        .get('/api/folders/111111111111111111111102')
         .then(res=>{
           expect(res).to.have.status(200);
         });
@@ -98,10 +83,10 @@ describe('this describe wraps everything', function(){
     });
   });
 
-describe('GET /api/notes', function(){
+describe('GET /api/folders', function(){
   it('should respond with a 200 error', function(){
     return chai.request(app)
-      .get('/api/notes')
+      .get('/api/folders')
         .then(res=>{
           expect(res).to.have.status(200);
         });
@@ -119,20 +104,20 @@ describe('GET /api/notes', function(){
   });
 });
 
-  describe('GET /api/note', function(){
+  describe('GET /api/folder', function(){
     it('should respond with a 404 error', function(){
       return chai.request(app)
-        .get('/api/note')
+        .get('/api/folder')
           .then(res=>{
             expect(res).to.have.status(404);
           });
         });
      });
 
-describe('POST /api/notes', function(){
+describe('POST /api/folders', function(){
   it('should respond with a 201 code', function(){
     return chai.request(app)
-    .post('/api/notes')
+    .post('/api/folders')
     .send({'title': 'hello', 'content': 'goodbye'})
     .then(res => {
         console.log(res.body);
@@ -141,7 +126,7 @@ describe('POST /api/notes', function(){
     });
   it('should return an error when missing "title" field', function(){
     return chai.request(app)
-      .post('/api/notes')
+      .post('/api/folders')
       .send({'content': 'asdfasdf'})
       .then(response => {
         expect(response).to.have.status(400);

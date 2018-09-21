@@ -65,12 +65,30 @@ router.post('/', (req, res, next) => {
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 router.put('/:id', (req, res, next) => {
     const name = req.body.name;
-  Folder.findByIdAndUpdate(id, {name: name}).then(result=>{
+    const id = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+   const err = new Error('The `id` is not valid');
+   err.status = 400;
+   return next(err);
+ }
+
+ if (!name) {
+   const err = new Error('Missing `name` in request body');
+   err.status = 400;
+   return next(err);
+ }
+    const updateFolder = { name: name };
+    Folder.findByIdAndUpdate(id, updateFolder).then(result=>{
     res.json(result);
   })
-  .catch(err =>
-      res.status(404).json({ err: 'was not able to update make sure to add a name' })
-    );
+  .catch(err => {
+    if (err.code === 11000) {
+      err = new Error('Folder name already exists');
+      err.status = 400;
+    }
+    next(err);
+  });
   console.log('Update a Folder');
   // res.json({ id: 1, title: 'Updated Temp 1' });
 });
