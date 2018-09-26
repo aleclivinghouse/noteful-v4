@@ -17,6 +17,7 @@ router.post('/', (req, res)=>{
     });
   }
 
+
 const sizedFields = {
   username: {
     min: 1
@@ -49,22 +50,25 @@ if (tooSmallField || tooLargeField) {
   });
 }
 
+
 return User.hashPassword(password)
   .then(digest => {
     const newUser = {
       username,
       password: digest
-    }
+    };
     return User.create(newUser);
   })
   .then(result => {
-    return res.status(201).json(result);
+    return res
+      .status(201).json(result);
   })
   .catch(err => {
     if (err.code === 11000) {
       err = new Error('The username already exists');
       err.status = 400;
     }
+
   });
 });
 

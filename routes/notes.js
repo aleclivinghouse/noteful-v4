@@ -3,11 +3,17 @@
 const express = require('express');
 const router = express.Router();
 const { MONGODB_URI } = require('../config');
+const passport = require('passport');
+const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const Note = require('../models/note');
 const Folder = require('../models/folder');
 const Tag = require('../models/folder');
+const User = require('../models/user');
 
+
+
+router.use('/', passport.authenticate('jwt', { session: false, failWithError: true }));
 /* ========== GET/READ ALL ITEMS ========== */
 router.get('/', (req, res, next) => {
   const searchTerm = req.query.searchTerm;
@@ -16,7 +22,8 @@ router.get('/', (req, res, next) => {
   // console.log(folders);
   const tagId = req.query.tagId;
   let filter = {};
-
+  const userId = req.user.id;
+   filter.userId = userId;
   if (searchTerm) {
   const re = new RegExp(searchTerm, 'i');
   filter.title = { $regex: re };
@@ -42,11 +49,25 @@ router.get('/', (req, res, next) => {
 
 /* ========== GET/READ A SINGLE ITEM ========== */
 router.get('/:id', (req, res, next) => {
-
+  const userId = req.user.id;
   const id = req.params.id;
+
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const err = new Error('The `id` is not valid');
+    err.status = 400;
+    return next(err);
+  }
+
   console.log('Get a Note');
-  Note.findById(id).populate('tags').then(result =>{
-    res.json(result);
+  Note.findOne({_id: id, userId })
+  .populate('tags')
+  .then(result => {
+    if(result){
+      res.json(result);
+    } else {
+      next();
+    }
   })
   .catch(err =>
       res.status(404).json({ nopostfound: 'No post found with that ID' })
@@ -59,6 +80,7 @@ router.post('/', (req, res, next) => {
   const content = req.body.content;
   const folderId = req.body.folderId;
   const tags = req.body.tags;
+  const userId = req.user.id;
   // const newItem = {
   //   title: title,
   //   content: content
@@ -69,6 +91,7 @@ router.post('/', (req, res, next) => {
   return next(err);
 }
   const newNote = {};
+  newNote.userId = userId;
   newNote.title = title;
   newNote.content = content;
   newNote.tags = [];

@@ -11,8 +11,7 @@ const store = (function () {
     currentQuery: {
       searchTerm: '',
     },
-    authToken: '',
-    authorized: false
+    currentUser: {}
   };
 
 }());

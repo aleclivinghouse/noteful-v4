@@ -2,10 +2,15 @@
 const express = require('express');
 const router = express.Router();
 const { MONGODB_URI } = require('../config');
+const jwt = require('jsonwebtoken');
+const passport = require('passport');
 const mongoose = require('mongoose');
 const Note = require('../models/note');
 const Tag = require('../models/tag');
 
+
+
+router.use('/', passport.authenticate('jwt', { session: false, failWithError: true }));
 /* ========== GET/READ ALL ITEMS ========== */
 router.get('/', (req, res, next) => {
   const searchTerm = req.query.searchTerm;

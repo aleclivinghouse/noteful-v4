@@ -1,0 +1,27 @@
+
+[
+  {
+    "_id": "333333333333333333333300",
+    "fullname": "Bob User",
+    "username": "bobuser",
+    "password": "$2a$10$QJCIX42iD5QMxLRgHHBJre2rH6c6nI24UysmSYtkmeFv6X8uS1kgi"
+  },
+  {
+    "_id": "333333333333333333333200",
+    "fullname": "Alec User",
+    "username": "alecuser",
+    "password": "$2a$10$QJCIX42iD5QMxLRgHHBJre2rH6c6nI24UysmSYtkmeFv6X8uS1kgi"
+  },
+  {
+    "_id": "333333333333333333333100",
+    "fullname": "Jake User",
+    "username": "jakeuser",
+    "password": "$2a$10$QJCIX42iD5QMxLRgHHBJre2rH6c6nI24UysmSYtkmeFv6X8uS1kgi"
+  },
+  {
+    "_id": "333333333333333333333400",
+    "fullname": "Sam User",
+    "username": "samuser",
+    "password": "$2a$10$QJCIX42iD5QMxLRgHHBJre2rH6c6nI24UysmSYtkmeFv6X8uS1kgi"
+  }
+]
