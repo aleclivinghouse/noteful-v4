@@ -23,7 +23,7 @@ router.get('/', (req, res, next) => {
   const tagId = req.query.tagId;
   let filter = {};
   const userId = req.user.id;
-   filter.userId = userId;
+  filter.userId = userId;
   if (searchTerm) {
   const re = new RegExp(searchTerm, 'i');
   filter.title = { $regex: re };
@@ -58,7 +58,6 @@ router.get('/:id', (req, res, next) => {
     err.status = 400;
     return next(err);
   }
-
   console.log('Get a Note');
   Note.findOne({_id: id, userId })
   .populate('tags')
@@ -131,7 +130,7 @@ router.put('/:id', (req, res, next) => {
   const title = req.body.title;
   const content = req.body.content;
   const id = req.params.id;
-  Note.findByIdAndUpdate(id, {title: title, content: content}).then(result=>{
+  Note.findByIdAndUpdate(id, {title: title, content: content, userId: userId}).then(result=>{
     res.json(result);
   })
   .catch(err =>

@@ -13,10 +13,11 @@ const Tag = require('../models/tag');
 router.use('/', passport.authenticate('jwt', { session: false, failWithError: true }));
 /* ========== GET/READ ALL ITEMS ========== */
 router.get('/', (req, res, next) => {
+  const userId = req.user.id;
   const searchTerm = req.query.searchTerm;
   const re = new RegExp(searchTerm, 'gi');
   console.log('Get All Tags');
-  Tag.find({}).then(results=>{
+  Tag.find({userId: userId, _id: id}).then(results=>{
     res.send(results);
   }).catch(err => {
     console.error(`ERROR: ${err.message}`);
@@ -26,7 +27,7 @@ router.get('/', (req, res, next) => {
 
 /* ========== GET/READ A SINGLE ITEM ========== */
 router.get('/:id', (req, res, next) => {
-
+  const userId = req.user.id;
   const id = req.params.id;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -36,7 +37,7 @@ router.get('/:id', (req, res, next) => {
 }
 
   console.log('Get a Tag');
-  Tag.findById(id).then(result =>{
+  Tag.findById({userId: userId, _id: id}).then(result =>{
     res.json(result);
   })
   .catch(err =>
@@ -47,6 +48,7 @@ router.get('/:id', (req, res, next) => {
 
 /* ========== POST/CREATE AN ITEM ========== */
 router.post('/', (req, res, next) => {
+  const userId = req.user.id;
   const name = req.body.name;
   // const newItem = {
   //   name: name,
@@ -57,7 +59,7 @@ router.post('/', (req, res, next) => {
   err.status = 400;
   return next(err);
 }
-  Tag.create({name: name}).then(result=>{
+  Tag.create({name: name, userId: userId}).then(result=>{
     console.log('below is the new Tag we created ');
     console.log(result);
     res.json(result);
@@ -82,7 +84,7 @@ router.put('/:id', (req, res, next) => {
    err.status = 400;
    return next(err);
  }
-    const updateFolder = { name: name };
+    const updateFolder = { name: name , userId: userId};
     Tag.findByIdAndUpdate(id, updateFolder).then(result=>{
     res.json(result);
   })
