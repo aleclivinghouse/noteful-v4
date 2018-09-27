@@ -18,22 +18,33 @@ chai.use(chaiHttp);
 
 describe('this describe wraps everything', function(){
   before(function () {
-    return mongoose.connect(TEST_MONGODB_URI)
-      .then(() => mongoose.connection.db.dropDatabase());
+    return mongoose.connect(TEST_MONGODB_URI, { useNewUrlParser: true })
+    .then(() => Promise.all([
+    Note.deleteMany(),
+    Folder.deleteMany(),
+    User.deleteMany()
+  ]));
   });
 
   beforeEach(function () {
     return Promise.all([
-      Note.insertMany(notes),
+      User.insertMany(users),
       Folder.insertMany(folders),
-      Tag.insertMany(tags),
-      Folder.createIndexes(),
-      Tag.createIndexes()
-    ]);
+      Note.insertMany(notes)
+    ])
+      .then(([users]) => {
+        user = users[0];
+        token = jwt.sign({user}, JWT_SECRET, {subject: user.username});
+      });
   });
 
   afterEach(function () {
-    return mongoose.connection.db.dropDatabase();
+    sandbox.restore();
+    return Promise.all([
+      Note.deleteMany(),
+      Folder.deleteMany(),
+      User.deleteMany()
+    ]);
   });
 
   after(function () {
@@ -75,6 +86,7 @@ describe('this describe wraps everything', function(){
     it('should delete an item by id', function () {
       return chai.request(app)
         .delete('/api/notes/000000000000000000000007')
+        .set('Authorization', `Bearer ${token}`)
         .then(res => {
           expect(res).to.have.status(204);
         });
@@ -85,6 +97,7 @@ describe('this describe wraps everything', function(){
     it('should respond with a 404 and an error message when `id` is not valid', function(){
     return chai.request(app)
       .get('/api/notes/NOT-A-VALID-ID')
+      .set('Authorization', `Bearer ${token}`)
       .then(res=>{
         expect(res).to.have.status(404);
       });
@@ -102,6 +115,7 @@ describe('GET /api/notes', function(){
   it('should respond with a 200 error', function(){
     return chai.request(app)
       .get('/api/notes')
+      .set('Authorization', `Bearer ${token}`)
         .then(res=>{
           expect(res).to.have.status(200);
         });
@@ -112,6 +126,7 @@ describe('GET /api/notes', function(){
   it('should respond with 404 when given a bad path', function(){
     return chai.request(app)
       .get('/api/123424')
+      .set('Authorization', `Bearer ${token}`)
       .then(res => {
         console.log(res);
         expect(res).to.have.status(404);
@@ -133,6 +148,7 @@ describe('POST /api/notes', function(){
   it('should respond with a 201 code', function(){
     return chai.request(app)
     .post('/api/notes')
+    .set('Authorization', `Bearer ${token}`)
     .send({'title': 'hello', 'content': 'goodbye'})
     .then(res => {
         console.log(res.body);
@@ -142,6 +158,7 @@ describe('POST /api/notes', function(){
   it('should return an error when missing "title" field', function(){
     return chai.request(app)
       .post('/api/notes')
+      .set('Authorization', `Bearer ${token}`)
       .send({'content': 'asdfasdf'})
       .then(response => {
         expect(response).to.have.status(400);

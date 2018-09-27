@@ -1,13 +1,18 @@
 const chai = require('chai');
 const chaiHttp = require('chai-http');
 const mongoose = require('mongoose');
-
+// const {folders, notes, users} = require('../db/seed/data');
 const app = require('../server');
-const { TEST_MONGODB_URI } = require('../config');
-
+const { TEST_MONGODB_URI, JWT_SECRET } = require('../config');
 const Folder = require('../models/folder');
+const User = require('../models/user');
+const Note = require('../models/note');
+const Tag = require('../models/Tag');
+const tags = require('../db/seed/tags');
+const notes = ('../db/seed/notes');
+const users = require('../db/seed/users');
+const folders = require('../db/seed/folders');
 
-const folders  = require('../db/seed/folders');
 
 const expect = chai.expect;
 chai.use(chaiHttp);
@@ -17,13 +22,26 @@ describe('this describe wraps everything', function(){
     return mongoose.connect(TEST_MONGODB_URI)
       .then(() => mongoose.connection.db.dropDatabase());
   });
-
+let token;
+let user;
   beforeEach(function () {
-    return Folder.insertMany(folders);
+    return Promise.all([
+      User.insertMany(users),
+      Folder.insertMany(folders),
+      Note.insertMany(notes)
+    ]).then(([users])=>{
+      user = users[0];
+      token = jwt.sign({user}, JWT_SECRET, { subject: `${user.username}`});
+    });
   });
 
   afterEach(function () {
-    return mongoose.connection.db.dropDatabase();
+    sandbox.restore();
+    return Promise.all([
+      Note.deleteMany(),
+      Folder.deleteMany(),
+      User.deleteMany()
+    ]);
   });
 
   after(function () {
@@ -49,6 +67,7 @@ describe('this describe wraps everything', function(){
     it('should respond with a 400 for an invalid id', function () {
       return chai.request(app)
         .put('/api/folders/1231231239192321390-19230-')
+        .set('Authorization', `Bearer ${token}`)
         .send({'title': 'New', 'content': 'New Content'})
         .then(res => {
           expect(res).to.have.status(400);
@@ -60,6 +79,7 @@ describe('this describe wraps everything', function(){
     it('should delete an item by id', function () {
       return chai.request(app)
         .delete('/api/folders/111111111111111111111103')
+        .set('Authorization', `Bearer ${token}`)
         .then(res => {
           expect(res).to.have.status(204);
         });
@@ -70,6 +90,7 @@ describe('this describe wraps everything', function(){
     it('should respond with a 400 and an error message when `id` is not valid', function(){
     return chai.request(app)
       .get('/api/folders/NOT-A-VALID-ID')
+      .set('Authorization', `Bearer ${token}`)
       .then(res=>{
         expect(res).to.have.status(400);
       });
@@ -84,19 +105,22 @@ describe('this describe wraps everything', function(){
   });
 
 describe('GET /api/folders', function(){
-  it('should respond with a 200 error', function(){
-    return chai.request(app)
-      .get('/api/folders')
-        .then(res=>{
+
+        const dbPromise = Folder.find({userId: user.id});
+        const apiPromise = chai.request(app).get('/api/folders')
+      return Promise.all([dbPromise, apiPromise])
+        .then(([data, res]) => {
           expect(res).to.have.status(200);
+          expect(res).to.be.json;
+          expect(res.body).to.be.a('array');
         });
-      });
   });
 
   describe('404 handler', function(){
   it('should respond with 404 when given a bad path', function(){
     return chai.request(app)
       .get('/api/123424')
+      .set('Authorization', `Bearer ${token}`)
       .then(res => {
         console.log(res);
         expect(res).to.have.status(404);
@@ -108,6 +132,7 @@ describe('GET /api/folders', function(){
     it('should respond with a 404 error', function(){
       return chai.request(app)
         .get('/api/folder')
+        .set('Authorization', `Bearer ${token}`)
           .then(res=>{
             expect(res).to.have.status(404);
           });
@@ -118,6 +143,7 @@ describe('POST /api/folders', function(){
   it('should respond with a 201 code', function(){
     return chai.request(app)
     .post('/api/folders')
+    .set('Authorization', `Bearer ${token}`)
     .send({'title': 'hello', 'content': 'goodbye'})
     .then(res => {
         console.log(res.body);
@@ -127,6 +153,7 @@ describe('POST /api/folders', function(){
   it('should return an error when missing "title" field', function(){
     return chai.request(app)
       .post('/api/folders')
+      .set('Authorization', `Bearer ${token}`)
       .send({'content': 'asdfasdf'})
       .then(response => {
         expect(response).to.have.status(400);
