@@ -1,3 +1,5 @@
+'use strict';
+
 const chai = require('chai');
 const chaiHttp = require('chai-http');
 const mongoose = require('mongoose');
@@ -5,132 +7,294 @@ const mongoose = require('mongoose');
 const app = require('../server');
 const { TEST_MONGODB_URI } = require('../config');
 
-const Tag = require('../models/tag');
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../config');
 
-const tags  = require('../db/seed/tags');
+const User = require('../models/user');
+const Note = require('../models/note');
+const Folder = require('../models/folder');
+const Tag = require('../models/tag')
+const { folders, notes, tags, users } = require('../db/seed/notes');
 
 const expect = chai.expect;
 chai.use(chaiHttp);
 
-describe('this describe wraps everything', function(){
+describe('Tags API', function(){
+  let user;
+  let userId;
+  let token;
+
   before(function () {
-    return mongoose.connect(TEST_MONGODB_URI)
-      .then(() => mongoose.connection.db.dropDatabase());
+    this.timeout(5000);
+    return mongoose.connect(TEST_MONGODB_URI, { useNewUrlParser:true })
+      .then(() => Promise.all([User.deleteMany(), Note.deleteMany(), Folder.deleteMany(), Tag.deleteMany()]));
   });
 
-  beforeEach(function () {
-    return Tag.insertMany(tags);
+  beforeEach(function(){
+    this.timeout(5000);
+    return Promise.all([
+      User.insertMany(users),
+      Note.insertMany(notes),
+      Folder.insertMany(folders),
+      Tag.insertMany(tags)
+    ])
+      .then(([ users ]) => {
+        user = users[0];
+        userId = user.id;
+        token = jwt.sign({ user }, JWT_SECRET, { subject: user.username });
+      });
   });
 
   afterEach(function () {
-    return mongoose.connection.db.dropDatabase();
+    return Promise.all([User.deleteMany(), Note.deleteMany(), Folder.deleteMany(), Tag.deleteMany()]);
   });
 
   after(function () {
     return mongoose.disconnect();
   });
 
-  describe('PUT /api/tags/:id', function () {
+  describe('GET tags endpoint', function(){
+    it('should return the correct fields', function(){
 
-    it('should update the tag', function () {
-      const updateItem = {'name': 'Updated Name'};
-      let data;
-      return Tag.findOne()
-        .then(_data => {
-          data = _data;
-          return chai.request(app).put(`/api/tags/${data.id}`).send(updateItem);
-        })
-         .then(function (res) {
-           expect(res).to.have.status(200);
-           expect(res).to.be.json;
+      return chai.request(app)
+        .get('/api/tags')
+        .set('Authorization', `Bearer ${token}`)
+        .then(res => {
+          res.body.forEach(tag => {
+            expect(tag).to.include.keys('id', 'name');
           });
+        });
+    });
+  });
+
+  describe('GET tag by Id endpoint', function(){
+
+    it('should return correct tag', function(){
+
+      let tag;
+
+      return Tag.findOne({ userId })
+        .then(_tag => {
+          tag = _tag;
+          const id = tag.id;
+          return chai.request(app)
+            .get(`/api/tags/${id}`)
+            .set('Authorization', `Bearer ${token}`);
+        })
+        .then(res => {
+          expect(res).to.have.status(200);
+          expect(res.body.name).to.equal(tag.name);
+          expect(res.body.userId).to.equal(userId);
+        });
     });
 
-    it('should respond with a 400 for an invalid id', function () {
+    it('should return 404 if id is non-existent', function(){
+      const nonexistentId = 'DOESNOTEXIST';
+
       return chai.request(app)
-        .put('/api/tags/1231231239192321390-19230-')
-        .send({'title': 'New', 'content': 'New Content'})
+        .get(`/api/tags/${nonexistentId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .then(res => {
+          expect(res).to.have.status(404);
+        });
+    });
+
+    it('should return 400 if id is invalid', function(){
+      const invalidId = 'invalid';
+
+      return chai.request(app)
+        .get(`/api/tags/${invalidId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .then(res => {
+          expect(res).to.have.status(400);
+        });
+
+    });
+  });
+
+  describe('POST tag endpoint', function(){
+
+    it('should insert a new tag into the collection', function(){
+      const newTag = {
+        name: 'newtag'
+      };
+      let res;
+
+      return chai.request(app)
+        .post('/api/tags')
+        .send(newTag)
+        .set('Authorization', `Bearer ${token}`)
+        .then(_res => {
+          res = _res;
+          expect(res).to.have.status(201);
+          const id = res.body.id;
+          return Tag.findOne({ _id: id, userId });
+        })
+        .then(tag => {
+          expect(res.body.name).to.equal(tag.name);
+          expect(res.body.userId).to.equal(userId);
+        });
+    });
+
+    it('should return 400 if request is missing a name', function(){
+      const invalidTag = {
+        name: ' '
+      };
+
+      return chai.request(app)
+        .post('/api/tags')
+        .send(invalidTag)
+        .set('Authorization', `Bearer ${token}`)
+        .then(res => {
+          expect(res).to.have.status(400);
+        });
+    });
+
+    it('should return 400 if name already exists', function(){
+
+      return Tag.findOne({ userId })
+        .then(tag => {
+          const name = tag.name;
+          const invalidTag = {
+            name: name
+          };
+
+          return chai.request(app)
+            .post('/api/tags')
+            .set('Authorization', `Bearer ${token}`)
+            .send(invalidTag);
+        })
         .then(res => {
           expect(res).to.have.status(400);
         });
     });
   });
 
-  describe('DELETE  /api/tags/:id', function () {
-    it('should delete an item by id', function () {
+  describe('PUT tag endpoint', function(){
+
+    const updatedTag = {
+      name: 'newname'
+    };
+
+    it('should update the tag in collection', function(){
+      let id;
+
+      return Tag.findOne({ userId })
+        .then(tag => {
+          id = tag.id;
+
+          return chai.request(app)
+            .put(`/api/tags/${id}`)
+            .set('Authorization', `Bearer ${token}`)
+            .send(updatedTag);
+        })
+        .then(res => {
+          expect(res).to.have.status(200);
+          expect(res.body.name).to.equal(updatedTag.name);
+          expect(res.body.userId).to.equal(userId);
+          return Tag.findOne( { _id: id, userId });
+        })
+        .then(dbTag => {
+          expect(dbTag.name).to.equal(updatedTag.name);
+        });
+    });
+
+    it('should return 404 if id is non-existent', function(){
+      const nonexistentId = 'DOESNOTEXIST';
+
       return chai.request(app)
-        .delete('/api/tags/111111111111111111111103')
+        .put(`/api/tags/${nonexistentId}`)
+        .send(updatedTag)
+        .set('Authorization', `Bearer ${token}`)
+        .then(res => {
+          expect(res).to.have.status(404);
+        });
+    });
+
+    it('should return 400 if id is invalid', function(){
+      const invalidId = 'invalid';
+
+      return chai.request(app)
+        .put(`/api/tags/${invalidId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(updatedTag)
+        .then(res => {
+          expect(res).to.have.status(400);
+        });
+    });
+
+    it('should return 400 is name is missing', function(){
+      const invalidTag = {
+        name: ' '
+      };
+
+      return Tag.findOne({ userId })
+        .then(tag => {
+          const id = tag.id;
+          return chai.request(app)
+            .put(`/api/tags/${id}`)
+            .send(invalidTag)
+            .set('Authorization', `Bearer ${token}`);
+        })
+        .then(res => {
+          expect(res).to.have.status(400);
+        });
+
+    });
+  });
+
+  describe('DELETE tag endpoint', function(){
+
+    beforeEach(function(){
+
+    });
+
+    it('should remove tag from collection and pull tag from notes', function(){
+      let id;
+
+      return Tag.findOne({ userId })
+        .then(tag => {
+          id = tag.id;
+
+          return chai.request(app)
+            .delete(`/api/tags/${id}`)
+            .set('Authorization', `Bearer ${token}`);
+        })
         .then(res => {
           expect(res).to.have.status(204);
+          const notesPromise = Note.find({tags: id, userId });
+          const tagsPromise = Tag.findOne({ _id: id, userId });
+          return Promise.all([notesPromise, tagsPromise]);
+        })
+        .then(([notes, tag]) =>{
+          expect(notes.length).to.equal(0);
+          expect(tag).to.be.null;
         });
-      });
+
     });
 
-  describe('GET /api/tags/:id', function(){
-    it('should respond with a 400 and an error message when `id` is not valid', function(){
-    return chai.request(app)
-      .get('/api/tags/NOT-A-VALID-ID')
-      .then(res=>{
-        expect(res).to.have.status(400);
-      });
-      it('should respond with a 204', function(){
-        return chai.request(app)
-        .get('/api/tags/111111111111111111111102')
-        .then(res=>{
-          expect(res).to.have.status(200);
-        });
-      });
-    });
-  });
+    it('should return 404 if id is non-existent', function(){
+      const nonexistentId = 'DOESNOTEXIST';
 
-describe('GET /api/tags', function(){
-  it('should respond with a 200 error', function(){
-    return chai.request(app)
-      .get('/api/tags')
-        .then(res=>{
-          expect(res).to.have.status(200);
-        });
-      });
-  });
-
-  describe('404 handler', function(){
-  it('should respond with 404 when given a bad path', function(){
-    return chai.request(app)
-      .get('/api/123424')
-      .then(res => {
-        console.log(res);
-        expect(res).to.have.status(404);
-      });
-  });
-});
-
-  describe('GET /api/tag', function(){
-    it('should respond with a 404 error', function(){
       return chai.request(app)
-        .get('/api/tag')
-          .then(res=>{
-            expect(res).to.have.status(404);
-          });
+        .delete(`/api/tags/${nonexistentId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .then(res => {
+          expect(res).to.have.status(404);
         });
-     });
-
-describe('POST /api/tags', function(){
-  it('should respond with a 201 code', function(){
-    return chai.request(app)
-    .post('/api/tags')
-    .send({'title': 'hello', 'content': 'goodbye'})
-    .then(res => {
-        console.log(res.body);
-        expect(res.body).to.be.an('object');
-      });
     });
-  it('should return an error when missing "title" field', function(){
-    return chai.request(app)
-      .post('/api/tags')
-      .send({'content': 'asdfasdf'})
-      .then(response => {
-        expect(response).to.have.status(400);
-     });
-   });
+
+    it('should return 400 if id is invalid', function(){
+      const invalidId = 'invalid';
+
+      return chai.request(app)
+        .delete(`/api/tags/${invalidId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .then(res => {
+          expect(res).to.have.status(400);
+        });
+    });
+
   });
-}); //wrapper end
+
+});

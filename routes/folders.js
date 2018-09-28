@@ -17,7 +17,7 @@ router.get('/', (req, res, next) => {
   const searchTerm = req.query.searchTerm;
   const re = new RegExp(searchTerm, 'gi');
   console.log('Get All Folders');
-  Folder.find({userId: userId, _id: id}).then(results=>{
+  Folder.find({userId: userId}).then(results=>{
     res.send(results);
   }).catch(err => {
     console.error(`ERROR: ${err.message}`);

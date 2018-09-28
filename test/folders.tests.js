@@ -1,163 +1,268 @@
+'use strict';
+
 const chai = require('chai');
 const chaiHttp = require('chai-http');
 const mongoose = require('mongoose');
-// const {folders, notes, users} = require('../db/seed/data');
+const ObjectId = mongoose.Types.ObjectId;
+
 const app = require('../server');
-const { TEST_MONGODB_URI, JWT_SECRET } = require('../config');
-const Folder = require('../models/folder');
+const { TEST_MONGODB_URI } = require('../config');
+
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../config');
+
 const User = require('../models/user');
 const Note = require('../models/note');
-const Tag = require('../models/Tag');
-const tags = require('../db/seed/tags');
-const notes = ('../db/seed/notes');
-const users = require('../db/seed/users');
-const folders = require('../db/seed/folders');
-
+const Folder = require('../models/folder');
+const { folders, notes, users } = require('../db/seed/notes');
 
 const expect = chai.expect;
 chai.use(chaiHttp);
 
-describe('this describe wraps everything', function(){
+describe('Folders API', function(){
+  let token;
+  let user;
+  let userId;
+
   before(function () {
-    return mongoose.connect(TEST_MONGODB_URI)
-      .then(() => mongoose.connection.db.dropDatabase());
+    this.timeout(10000);
+
+    return mongoose.connect(TEST_MONGODB_URI, { useNewUrlParser:true })
+      .then(() => Promise.all([User.deleteMany(), Note.deleteMany(), Folder.deleteMany()]));
   });
-let token;
-let user;
-  beforeEach(function () {
+
+  beforeEach(function(){
+    this.timeout(5000);
     return Promise.all([
       User.insertMany(users),
-      Folder.insertMany(folders),
-      Note.insertMany(notes)
-    ]).then(([users])=>{
-      user = users[0];
-      token = jwt.sign({user}, JWT_SECRET, { subject: `${user.username}`});
-    });
+      Note.insertMany(notes),
+      Folder.insertMany(folders)
+    ])
+      .then(([ users ]) => {
+        user = users[0];
+        userId = user.id;
+        token = jwt.sign({ user }, JWT_SECRET, { subject: user.username });
+      });
   });
 
   afterEach(function () {
-    sandbox.restore();
-    return Promise.all([
-      Note.deleteMany(),
-      Folder.deleteMany(),
-      User.deleteMany()
-    ]);
+    return Promise.all([User.deleteMany(), Note.deleteMany(), Folder.deleteMany()]);
   });
 
   after(function () {
     return mongoose.disconnect();
   });
 
-  describe('PUT /api/folders/:id', function () {
+  describe('GET folder endpoint', function(){
 
-    it('should update the folder', function () {
-      const updateItem = {'name': 'Updated Name'};
-      let data;
-      return Folder.findOne()
-        .then(_data => {
-          data = _data;
-          return chai.request(app).put(`/api/folders/${data.id}`).send(updateItem);
-        })
-         .then(function (res) {
-           expect(res).to.have.status(200);
-           expect(res).to.be.json;
+    it('should return an array of folders with correct fields', function(){
+
+      return chai.request(app)
+        .get('/api/folders')
+        .set('Authorization', `Bearer ${token}`)
+        .then(res => {
+          expect(res).to.have.status(200);
+          expect(res).to.be.json;
+          expect(res.body).to.be.an('array');
+          res.body.forEach(folder => {
+            expect(folder).to.include.keys('id', 'name', 'userId');
           });
+        });
+    });
+  });
+
+  describe('GET folder by Id endpoint', function(){
+
+    it('should return correct folder', function(){
+      let folder;
+      return Folder.findOne({ userId })
+        .then(_folder => {
+          folder = _folder;
+          const id = folder.id;
+          return chai.request(app)
+            .get(`/api/folders/${id}`)
+            .set('Authorization', `Bearer ${token}`);
+        })
+        .then(res => {
+          expect(res).to.have.status(200);
+          expect(res.body).to.include.keys('id', 'name');
+          expect(res.body.name).to.equal(folder.name);
+          expect(res.body.id).to.equal(folder.id);
+          expect(ObjectId(res.body.userId)).to.deep.equal(folder.userId);
+        });
     });
 
-    it('should respond with a 400 for an invalid id', function () {
+    it('should return 404 if id is non-existent', function(){
+      const nonexistentId = 'DOESNOTEXIST';
+
       return chai.request(app)
-        .put('/api/folders/1231231239192321390-19230-')
+        .get(`/api/folders/${nonexistentId}`)
         .set('Authorization', `Bearer ${token}`)
-        .send({'title': 'New', 'content': 'New Content'})
+        .then(res => {
+          expect(res).to.have.status(404);
+        });
+    });
+
+    it('should return 400 if the id is invalid', function(){
+      const invalidId = 'invalidid';
+      return chai.request(app)
+        .get(`/api/folders/${invalidId}`)
+        .set('Authorization', `Bearer ${token}`)
         .then(res => {
           expect(res).to.have.status(400);
         });
     });
   });
 
-  describe('DELETE  /api/folders/:id', function () {
-    it('should delete an item by id', function () {
+  describe('POST folder endpoint', function(){
+
+    it('should return the new folder when provided a valid folder', function(){
+      const validFolder = {
+        name: 'Projects'
+      };
+
       return chai.request(app)
-        .delete('/api/folders/111111111111111111111103')
+        .post('/api/folders')
+        .send(validFolder)
         .set('Authorization', `Bearer ${token}`)
         .then(res => {
-          expect(res).to.have.status(204);
+          expect(res).to.have.status(201);
+          expect(res.body).to.include.keys('id', 'name', 'userId');
+          expect(res.body.name).to.equal(validFolder.name);
+          expect(res.body.userId).to.equal(userId);
         });
-      });
     });
 
-  describe('GET /api/folders/:id', function(){
-    it('should respond with a 400 and an error message when `id` is not valid', function(){
-    return chai.request(app)
-      .get('/api/folders/NOT-A-VALID-ID')
-      .set('Authorization', `Bearer ${token}`)
-      .then(res=>{
-        expect(res).to.have.status(400);
-      });
-      it('should respond with a 204', function(){
-        return chai.request(app)
-        .get('/api/folders/111111111111111111111102')
-        .then(res=>{
-          expect(res).to.have.status(200);
-        });
-      });
-    });
-  });
+    it('should insert the folder into the collection', function(){
+      const validFolder = {
+        name: 'Projects'
+      };
 
-describe('GET /api/folders', function(){
-
-        const dbPromise = Folder.find({userId: user.id});
-        const apiPromise = chai.request(app).get('/api/folders')
-      return Promise.all([dbPromise, apiPromise])
-        .then(([data, res]) => {
-          expect(res).to.have.status(200);
-          expect(res).to.be.json;
-          expect(res.body).to.be.a('array');
-        });
-  });
-
-  describe('404 handler', function(){
-  it('should respond with 404 when given a bad path', function(){
-    return chai.request(app)
-      .get('/api/123424')
-      .set('Authorization', `Bearer ${token}`)
-      .then(res => {
-        console.log(res);
-        expect(res).to.have.status(404);
-      });
-  });
-});
-
-  describe('GET /api/folder', function(){
-    it('should respond with a 404 error', function(){
       return chai.request(app)
-        .get('/api/folder')
+        .post('/api/folders')
+        .send(validFolder)
         .set('Authorization', `Bearer ${token}`)
-          .then(res=>{
-            expect(res).to.have.status(404);
-          });
+        .then(res => {
+          const id = res.body.id;
+          return Folder.findOne({ _id: id, userId });
+        })
+        .then(folder => {
+          expect(folder.name).to.equal(validFolder.name);
+          expect(folder.userId).to.deep.equal(ObjectId(userId));
         });
-     });
-
-describe('POST /api/folders', function(){
-  it('should respond with a 201 code', function(){
-    return chai.request(app)
-    .post('/api/folders')
-    .set('Authorization', `Bearer ${token}`)
-    .send({'title': 'hello', 'content': 'goodbye'})
-    .then(res => {
-        console.log(res.body);
-        expect(res.body).to.be.an('object');
-      });
     });
-  it('should return an error when missing "title" field', function(){
-    return chai.request(app)
-      .post('/api/folders')
-      .set('Authorization', `Bearer ${token}`)
-      .send({'content': 'asdfasdf'})
-      .then(response => {
-        expect(response).to.have.status(400);
-     });
-   });
+
+    it('should return 400 if name field is missing', function(){
+      const invalidFolder = {};
+
+      return chai.request(app)
+        .post('/api/folders')
+        .send(invalidFolder)
+        .set('Authorization', `Bearer ${token}`)
+        .then(res => {
+          expect(res).to.have.status(400);
+        });
+    });
+
+    it('should return 400 if folder name already exists', function(){
+
+      return Folder.findOne({ userId })
+        .then(folder => {
+          const newFolder = { name: folder.name };
+
+          return chai.request(app)
+            .post('/api/folders')
+            .set('Authorization', `Bearer ${token}`)
+            .send(newFolder);
+        })
+        .then(res => {
+          expect(res).to.have.status(400);
+        });
+
+    });
   });
-}); //wrapper end
+
+  describe('PUT folder endpoint', function(){
+
+    it('should update the note in the collection', function(){
+      const newFolder = {name: 'New Folder'};
+      let id;
+      return Folder.findOne({ userId })
+        .then(folder => {
+          id = folder.id;
+
+          return chai.request(app)
+            .put(`/api/folders/${id}`)
+            .set('Authorization', `Bearer ${token}`)
+            .send(newFolder);
+        })
+        .then(res => {
+          expect(res).to.have.status(200);
+          expect(res.body).to.include.keys('id', 'name');
+          return Folder.findOne({ _id: id, userId });
+        })
+        .then(folder => {
+          expect(folder.name).to.be.equal(newFolder.name);
+        });
+
+    });
+
+    it('should return 404 given a nonexistent id', function(){
+      const newFolder = {
+        name: 'New Folder'
+      };
+
+      const nonexistentId = 'DOESNOTEXIST';
+
+      return chai.request(app)
+        .put(`/api/folders/${nonexistentId}`)
+        .send(newFolder)
+        .set('Authorization', `Bearer ${token}`)
+        .then(res => {
+          expect(res).to.have.status(404);
+        });
+
+    });
+
+    it('should return 400 given an invalid id string', function(){
+      const newFolder = {
+        name: 'New Folder'
+      };
+      const invalidId = 'invalidid';
+      return chai.request(app)
+        .put(`/api/folders/${invalidId}`)
+        .send(newFolder)
+        .set('Authorization', `Bearer ${token}`)
+        .then(res => {
+          expect(res).to.have.status(400);
+        return chai.request(app)
+            .delete(`/api/folders/${id}`)
+            .set('Authorization', `Bearer ${token}`);
+        })
+        .then(res => {
+          return Note.find({_id: id, userId });
+        })
+        .then(notes => {
+          expect(notes.length).to.equal(0);
+        });
+
+    });
+
+    it('should return 404 for nonexistent id', function(){
+
+      return Folder.findOne({ userId: { $ne: ObjectId(userId) }})
+        .then(folder => {
+          const folderId = folder.id;
+          return chai.request(app)
+            .delete(`/api/folders/${folderId}`)
+            .set('Authorization', `Bearer ${token}`);
+        })
+        .then(res => {
+          expect(res).to.have.status(404);
+        });
+
+    });
+
+  });
+
+});
